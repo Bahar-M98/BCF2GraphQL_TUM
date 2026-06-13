@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: bcf2graphql
+    runtime: docker
+    plan: free          # upgrade to starter/standard for persistent disk + more RAM
+
+    # Render sets $PORT automatically; CMD in Dockerfile reads it.
+    # healthCheckPath is the lightest endpoint that exercises the full stack.
+    healthCheckPath: /docs
+
+    envVars:
+      - key: MONGO_URI
+        sync: false     # set this secret in the Render dashboard → Environment tab

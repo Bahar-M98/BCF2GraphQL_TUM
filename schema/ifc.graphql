@@ -1,0 +1,186 @@
+# IFC GraphQL schema — extends BCF schema with IFC 4 element and version types.
+# Uses late binding: IFC files are read from disk at query time, never imported
+# into MongoDB, so the model data is always current without a separate sync step.
+
+# ─── Query ───────────────────────────────────────────────────────────────────
+
+extend type Query {
+
+    # Look up one element. Selector priority (first match wins):
+    #   ifcProjectGuid and/or fileName → locate by project GUID and/or filename
+    #   version (Int)                  → locate by integer index (1 = oldest)
+    #   none                           → latest version containing the element
+    ifcElement(globalId: ID!, version: Int, ifcProjectGuid: ID, fileName: String): IfcElement
+
+    # All elements, optionally filtered by IFC type, version index, or storey name.
+    ifcElements(type: String, version: Int, storey: String): [IfcElement]
+
+    # List all IFC versions discovered in ifcs/, oldest first.
+    # Pass ifcProjectGuid to filter to one project; omit to list all projects.
+    ifcVersions(ifcProjectGuid: ID): [IfcVersion!]!
+
+    # Best-matching IFC version for a BCF topic at a given point in time.
+    # Omit eventTime to use the topic's creation date.
+    # Uses 3-tier matching: project GUID → filename → global timestamp window.
+    ifcVersionForEvent(topicGuid: ID!, eventTime: String): IfcVersionMatch
+
+    # How one IFC element changed across model versions for a given project.
+    # Returns one ElementVersion per IFC file; element is null when the GUID
+    # did not exist in that version.
+    elementVersionHistory(globalId: ID!, ifcProjectGuid: ID!): [ElementVersion!]!
+
+    # All BCF topics referencing a given IFC element (latest version of each).
+    # Precision filters (all optional, combinable):
+    #   ifcProjectGuid — only topics authored against this IFC project
+    #   fileName       — narrow further to a specific IFC file
+    #   before         — ISO 8601; only topics created at or before this time
+    #   includeHistory — when true, returns all stored import versions of each
+    #                    topic (oldest first) instead of just the latest
+    topicsForElement(
+        globalId:       ID!
+        ifcProjectGuid: ID
+        fileName:       String
+        before:         String
+        includeHistory: Boolean
+    ): [Topic!]!
+
+    # Full chronological timeline of BCF events for a topic, each stamped with
+    # the IFC version active at that moment. Merges creation, comments, status
+    # changes, and modifications into one pre-sorted stream.
+    # Defined here (not bcfSchema.Graphql) because BCFEvent references IfcVersionMatch.
+    topicTimeline(topicGuid: ID!): [BCFEvent!]!
+}
+
+
+
+# ─── Owner History ──────────────────────────────────────────
+
+# changeAction is IFC's own version flag: ADDED, MODIFIED, DELETED, NOCHANGE.
+type IfcOwnerHistory {
+    creationDate:      Int
+    lastModifiedDate:  Int
+    changeAction:      String
+    owningUser:        String
+    owningApplication: String
+}
+
+# ─── Material ───────────────────────────────────────────────
+
+# A wall can have multiple material layers, each with a name and thickness.
+type IfcMaterial {
+    name:     String
+    category: String
+}
+
+type IfcMaterialLayer {
+    name:      String
+    material:  IfcMaterial
+    thickness: Float
+}
+
+# ─── Storey ─────────────────────────────────────────────────
+
+type IfcStorey {
+    name:      String
+    elevation: Float
+}
+
+# ─── Property Sets ───────────────────────────────────────────
+
+# A single property inside a property set (e.g. "IsExternal" = "true").
+# nominalValue is a String because IFC property values can be any type
+# (boolean, integer, string, measure) — stringifying keeps the schema simple.
+type IfcProperty {
+    name:         String!
+    nominalValue: String
+}
+
+# A named group of properties (e.g. "Pset_WallCommon", "Qto_WallBaseQuantities").
+type IfcPropertySet {
+    name:       String!
+    properties: [IfcProperty!]!
+}
+
+# ─── Mesh Geometry ───────────────────────────────────────────
+
+# vertices: flat [x,y,z, x,y,z, ...] — every 3 floats = one vertex
+# faces:    flat triangle indices [i,j,k, ...] — every 3 ints = one triangle
+# normals:  flat [nx,ny,nz, ...] — per-vertex normals matching vertices
+type IfcMesh {
+    vertices: [Float]!
+    faces:    [Int]!
+    normals:  [Float]
+    glb:      String   # base64-encoded GLB binary; use with THREE.js GLTFLoader
+}
+
+# ─── Element ─────────────────────────────────────────────────
+
+# One type covers all building elements (walls, doors, slabs, …).
+# The type field tells you which kind at runtime: "IfcWall", "IfcDoor", etc.
+type IfcElement {
+    globalId:       ID!
+    name:           String
+    type:           String          # "IfcWall", "IfcDoor", "IfcWindow", etc.
+    predefinedType: String          # "DOOR", "BASESLAB", "SHEAR", etc.
+    ownerHistory:   IfcOwnerHistory
+    storey:         IfcStorey
+    material:       [IfcMaterialLayer]
+    volume:         Float
+    psets:          [IfcPropertySet!]!  # all property sets attached to this element
+    topics:         [Topic]         # reverse link: BCF issues referencing this element
+    version:        Int             # which IFC file (1 = oldest, N = newest)
+    fileName:       String          # name of the .ifc file this element came from
+    geometry:       IfcMesh         # tessellated mesh — null when no geometry representation
+}
+
+# ─── IFC Version ─────────────────────────────────────────────
+
+# A snapshot of one IFC model file as discovered on disk.
+# No registration step is required: ifcReader.list_versions() scans ifcs/
+# at query time and builds this record from each file's STEP FILE_NAME header.
+# id is the IfcProject.GlobalId — stable across file renames, unlike the filename.
+type IfcVersion {
+    id:         ID!      # IfcProject.GlobalId — stable across file renames
+    fileName:   String!
+    exportedAt: String!  # ISO 8601 — from the FILE_NAME header in the IFC STEP file
+}
+
+# Result of 3-tier IFC version matching for a BCF event timestamp.
+# inferred: false = the version was traced directly from the BCF header
+#                   (by IfcProject GUID or by filename — both are real links).
+# inferred: true  = no BCF header data was available; the system used the
+#                   latest IFC version exported before the event timestamp.
+# The internal tier number (1/2/3) is not exposed: both tier 1 and tier 2
+# produce inferred=false and a client treats them identically.
+type IfcVersionMatch {
+    version:   IfcVersion!
+    inferred:  Boolean!
+}
+
+# ─── Element Version History ──────────────────────────────────
+
+# An IFC element as it appeared in a specific model version.
+# element is null (not omitted) when the GUID did not exist in that version —
+# returning null rather than skipping the version is intentional so clients
+# can see exactly which version introduced or removed the element.
+type ElementVersion {
+    version: IfcVersion!
+    element: IfcElement    # null = GUID not present in this version
+}
+
+# ─── Design notes ────────────────────────────────────────────────────────────
+#
+# IfcVersion is the minimal representation of one IFC file on disk. Its three
+# fields (id, fileName, exportedAt) map directly to what the STEP FILE_NAME
+# header already contains — no extra registration or metadata is needed.
+#
+# IfcVersionMatch wraps IfcVersion to carry the `inferred` boolean. Returning a
+# bare IfcVersion from 3-tier matching would silently lose whether the version
+# was a real traced link from the BCF header (certain) or a timestamp-window
+# guess (estimated) — a distinction that matters to any client displaying it.
+#
+# ElementVersion exists for the same reason as IfcVersionMatch. Returning
+# [IfcElement] from elementVersionHistory would silently skip versions where the
+# element didn't exist yet. ElementVersion with a nullable `element` field shows
+# every model version explicitly, so a client can answer "which version
+# introduced this element?"

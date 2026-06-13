@@ -1,0 +1,357 @@
+# BCF 3.0 compliant GraphQL schema
+# Based on the buildingSMART BCF REST API 3.0 specification:
+#   https://github.com/buildingSMART/BCF-API/tree/release_3_0
+
+type Query {
+    project:      Project
+    topics(projectId: ID, topicStatus: String, topicType: String, assignedTo: String, title: String): [Topic!]!
+    topic(guid: ID!):        Topic
+
+    # topicHistory exposes the raw versioned snapshots stored on each BCF import —
+    # the same data a REST client would have to work with. It is the benchmark
+    # baseline: it proves the underlying data is equivalent and that the efficiency
+    # gain in topicTimeline comes from GraphQL's resolver model, not from storing
+    # data differently. A REST client reproducing topicTimeline must diff these
+    # snapshots itself across 2+N round trips; topicTimeline does it in one request.
+    topicHistory(guid: ID!): [Topic!]!
+
+    # BCF 3.0 spec — Section 3.9 Topics Events Services
+    # GET /bcf/3.0/projects/{project_id}/topics/events
+    # GET /bcf/3.0/projects/{project_id}/topics/{topic_guid}/events
+    topicEvents(projectId: ID!, topicGuid: ID): [TopicEvent!]!
+
+    # BCF 3.0 spec — Section 3.10 Comments Events Services
+    # GET /bcf/3.0/projects/{project_id}/topics/comments/events
+    # GET /bcf/3.0/projects/{project_id}/topics/{topic_guid}/comments/{comment_guid}/events
+    commentEvents(projectId: ID!, topicGuid: ID, commentGuid: ID): [CommentEvent!]!
+}
+
+
+type Date {
+    timestamp: Float!
+    ISO8601:   String!
+}
+
+
+type Project {
+    projectId: ID
+    name:      String
+    topics:    [Topic!]!
+}
+
+# ─── Topic ──────────────────────────────────────────────────
+# BCF 3.0 spec: topic_GET.json
+# version is thesis-specific (import version counter, not in spec).
+
+type Topic {
+    guid:               ID!
+    version:            Int
+    serverAssignedId:   String
+    topicType:          String
+    topicStatus:        String
+    referenceLinks:     [String!]!
+    title:              String!
+    priority:           String
+    index:              Int
+    labels:             [String!]!
+    creationDate:       Date!
+    creationAuthor:     String!
+    modifiedDate:       Date
+    modifiedAuthor:     String
+    dueDate:            Date
+    assignedTo:         String
+    stage:              String
+    description:        String
+    bimSnippet:         BimSnippet
+    documentReferences: [DocumentReference!]!
+    comments:           [Comment!]!
+    viewpoints:         [Viewpoint!]!
+    files:              [File!]!
+}
+
+
+# ─── Files ───────────────────────────────────────────────────────────────────
+# BCF 3.0 spec: Section 3.3 File Services
+# REST: GET /bcf/3.0/projects/{project_id}/topics/{guid}/files → array of File
+# Topic.files mirrors the REST response directly. The BCF XML format wraps
+# these in a <Header> element, but that wrapper carries no data of its own.
+
+# BCF 3.0 spec: file_GET.json
+# isExternal comes from the BCF XML format (markup.bcf) — not in REST file_GET.json.
+
+type File {
+    ifcProjectGuid:             ID       # spec: ifc_project
+    ifcSpatialStructureElement: ID       # spec: ifc_spatial_structure_element
+    isExternal:                 Boolean  # BCF XML only — absent from REST file_GET.json
+    fileName:                   String   # spec: filename
+    date:                       Date
+    reference:                  String
+}
+
+# ─── BimSnippet ─────────────────────────────────────────────
+# BCF 3.0 spec: bim_snippet.json
+
+type BimSnippet {
+    snippetType:     String!
+    isExternal:      Boolean!
+    reference:       String!
+    referenceSchema: String!
+}
+
+# ─── DocumentReference ──────────────────────────────────────
+# BCF 3.0 spec: document_reference_GET.json
+# url and documentGuid are mutually exclusive.
+
+type DocumentReference {
+    guid:         ID
+    url:          String  # external reference
+    documentGuid: ID      # internal document
+    description:  String
+}
+
+# ─── Comment ────────────────────────────────────────────────
+# BCF 3.0 spec: comment_GET.json
+# topicGuid is required by the spec; included even though comments are always
+# accessed nested under their parent topic in GraphQL.
+
+type Comment {
+    guid:           ID!
+    date:           Date!
+    author:         String!
+    comment:        String
+    topicGuid:      ID        # spec: topic_guid (required in REST response)
+    viewpointGuid:  ID        # spec: viewpoint_guid (raw GUID reference)
+    viewpoint:      Viewpoint # resolved full Viewpoint object (GraphQL extension)
+    modifiedDate:   Date
+    modifiedAuthor: String
+}
+
+# ─── Viewpoint ──────────────────────────────────────────────
+# BCF 3.0 spec: viewpoint_GET.json
+
+type Viewpoint {
+    guid:           ID!
+    viewpoint:      String   # .bcfv filename — from BCF ZIP, not in REST spec
+    snapshot:       Snapshot # spec-compliant snapshot object
+    index:          Int
+    components:     Components
+    camera:         Camera
+    lines:          [Line!]!
+    clippingPlanes: [ClippingPlane!]!
+    bitmaps:        [Bitmap!]!
+}
+
+# ─── Snapshot ────────────────────────────────────────────────
+# BCF 3.0 spec: snapshot_GET.json returns snapshotType only.
+# snapshotData (base64) is populated when reading directly from the BCF ZIP.
+# REST GET /viewpoints/{guid}/snapshot returns the binary image file directly.
+
+type Snapshot {
+    snapshotType: ImageFormat!
+    snapshotData: String          # base64; null for REST GET responses
+}
+
+# Shared by Snapshot.snapshotType and Bitmap.bitmapType — the BCF spec uses
+# two separate enums (snapshot_type / bitmap_type) but the value sets are
+# identical, so a single enum removes the duplication.
+enum ImageFormat {
+    PNG
+    JPG
+}
+
+# ─── Components ─────────────────────────────────────────────
+# BCF 3.0 spec: components.json
+
+type Components {
+    selection:  [Component!]!
+    visibility: Visibility
+    coloring:   [Color!]!
+}
+
+type Component {
+    ifcGuid:           ID
+    originatingSystem: String
+    authoringToolId:   String
+    ifcElement:        IfcElement  # GraphQL extension: resolved IFC element
+}
+
+type Visibility {
+    defaultVisibility: Boolean
+    exceptions:        [Component!]!
+    viewSetupHints:    ViewSetupHints
+}
+
+type ViewSetupHints {
+    spacesVisible:          Boolean
+    spaceBoundariesVisible: Boolean
+    openingsVisible:        Boolean
+}
+
+type Color {
+    color:      String      # ARGB hex e.g. "FF3700B3" (spec: coloring.json)
+    components: [Component!]!
+}
+
+# ─── Camera ─────────────────────────────────────────────────
+# BCF 3.0 spec: perspective_camera.json / orthogonal_camera.json
+# GraphQL union replaces the two separate optional camera objects in the REST spec.
+
+union Camera = PerspectiveCamera | OrthogonalCamera
+
+type PerspectiveCamera {
+    cameraViewPoint: Vector3D!
+    cameraDirection: Vector3D!
+    cameraUpVector:  Vector3D!
+    fieldOfView:     Float!
+    aspectRatio:     Float!
+}
+
+type OrthogonalCamera {
+    cameraViewPoint:  Vector3D!
+    cameraDirection:  Vector3D!
+    cameraUpVector:   Vector3D!
+    viewToWorldScale: Float!
+    aspectRatio:      Float!
+}
+
+# ─── Geometry ───────────────────────────────────────────────
+
+type Vector3D {
+    x: Float!
+    y: Float!
+    z: Float!
+}
+
+type Line {
+    startPoint: Vector3D!
+    endPoint:   Vector3D!
+}
+
+type ClippingPlane {
+    location:  Vector3D!
+    direction: Vector3D!
+}
+
+# BCF 3.0 spec: bitmap_GET.json
+# guid is assigned by the server on GET; absent when first imported from a BCF ZIP.
+
+type Bitmap {
+    guid:       ID           # spec: bitmap_GET.json (absent on ZIP import)
+    bitmapType: ImageFormat! # spec: bitmap_type
+    location:   Vector3D!
+    normal:     Vector3D!
+    up:         Vector3D!
+    height:     Float!
+}
+
+
+# ─── BCF 3.0 Spec Events ─────────────────────────────────────────────────────
+# buildingSMART BCF REST API 3.0 defines two event audit log services:
+#
+#   Section 3.9  — Topic Events Services
+#     GET /bcf/3.0/projects/{project_id}/topics/events
+#     GET /bcf/3.0/projects/{project_id}/topics/{topic_guid}/events
+#     Schema: topic_event_GET.json — fields: topic_guid, date, author, actions[]
+#
+#   Section 3.10 — Comments Events Services
+#     GET /bcf/3.0/projects/{project_id}/topics/comments/events
+#     GET /bcf/3.0/projects/{project_id}/topics/{topic_guid}/comments/{comment_guid}/events
+#     Schema: comment_event_GET.json — fields: comment_guid, topic_guid, date, author, actions[]
+#
+# NOTE: The JSON schema files use the field name `actions`; the README examples
+# show `events`. This schema follows the JSON schema definition: `actions`.
+
+type EventAction {
+    type:  BCFActionType! # one of the topic or comment event type values
+    value: String  # null for removal events; new value for update/add events
+}
+
+type TopicEvent {
+    topicGuid: ID!
+    date:      Date!
+    author:    String!
+    actions:   [EventAction!]!
+}
+
+type CommentEvent {
+    commentGuid: ID!
+    topicGuid:   ID!
+    date:        Date!
+    author:      String!
+    actions:     [EventAction!]!
+}
+
+# BCF 3.0 spec Section 3.9 defines 17 topic event types and Section 3.10
+# defines 4 comment event types. EventAction.type is shared between
+# TopicEvent and CommentEvent, so this single enum covers both sets.
+# REST comparison point: a REST client must handle all 21 types individually
+# across two separate endpoints; GraphQL surfaces them in one unified query.
+enum BCFActionType {
+    # Section 3.9 — topic event types
+    topic_created
+    title_updated
+    description_updated
+    description_removed
+    status_updated
+    type_updated
+    priority_updated
+    priority_removed
+    due_date_updated
+    due_date_removed
+    assigned_to_updated
+    assigned_to_removed
+    label_added
+    label_removed
+    stage_added
+    stage_updated
+    stage_removed
+
+    # Section 3.10 — comment event types
+    comment_created
+    comment_text_updated
+    viewpoint_updated
+    viewpoint_removed
+}
+
+
+# ─── Thesis Extension: Unified BCF Event Timeline ────────────────────────────
+#
+# The BCF 3.0 spec DOES have event audit logs (Sections 3.9 and 3.10 above).
+# BCFEvent and topicTimeline(topicGuid) differ from those spec events in three
+# ways specific to this thesis:
+#
+#   1. UNIFIED — merges topic events + comment events into one sorted stream.
+#      Reconstructing this with the REST API requires two separate calls:
+#        GET /topics/{guid}/events              → topic events (Section 3.9)
+#        GET /topics/{guid}/comments/events     → comment events (Section 3.10)
+#      topicTimeline returns the equivalent in one GraphQL request.
+#
+#   2. IFC-VERSION-STAMPED — every event carries the IfcVersion that was
+#      active on disk at that moment (via 3-tier matching). The spec events
+#      have no concept of linking BCF events to IFC model versions.
+#
+#   3. SEMANTIC TYPES — four coarse types (CREATION, COMMENT, STATUS_CHANGE,
+#      MODIFICATION) instead of 17 + 4 granular field-level types. This is a
+#      deliberate design trade-off for the timeline view.
+#
+# Request count comparison (per topic):
+#   REST:    GET /topics/{guid}/events              (1)
+#            GET /topics/{guid}/comments/events     (1)
+#            For each N events: IFC version lookup  (N)
+#            Total: 2 + N requests
+#   GraphQL: topicTimeline(topicGuid)               (1 request)
+
+enum BCFEventType {
+    CREATION
+    COMMENT
+    MODIFICATION
+    STATUS_CHANGE
+}
+
+type BCFEvent {
+    eventType:  BCFEventType!
+    timestamp:  Date
+    author:     String
+    detail:     String
+    ifcVersion: IfcVersionMatch  # null when no IFC versions are registered
+}

@@ -1,0 +1,29 @@
+tier,scenario,description,api,median_ms,ci_low_ms,ci_high_ms,median_reqs,median_bytes,timeout_count,error_count
+benchmark_small,topics_flat,"All topics, identical field set to REST (apples-to-apples)",graphql,332.29,330.9,344.37,1.0,17105,0,0
+benchmark_small,topics_flat,"All topics, identical field set to REST (apples-to-apples)",rest,471.22,468.8,477.38,1.0,17085,0,0
+benchmark_small,topics_nested,Topics → viewpoints → components → IFC GUIDs (N+1 in REST),graphql,329.47,327.51,334.78,1.0,12129,0,0
+benchmark_small,topics_nested,Topics → viewpoints → components → IFC GUIDs (N+1 in REST),rest,23810.21,23703.53,23969.65,51.0,28898,0,0
+benchmark_small,topic_events,BCF 3.0 spec topic audit log (Section 3.9),graphql,333.38,332.15,334.24,1.0,19637,0,0
+benchmark_small,topic_events,BCF 3.0 spec topic audit log (Section 3.9),rest,472.55,471.13,527.49,1.0,19612,0,0
+benchmark_small,comment_events,BCF 3.0 spec comment audit log (Section 3.10),graphql,333.46,330.35,336.51,1.0,17340,0,0
+benchmark_small,comment_events,BCF 3.0 spec comment audit log (Section 3.10),rest,473.2,468.66,478.36,1.0,17313,0,0
+benchmark_small,project_comments,All comments for every topic in a project (1+N in REST),graphql,340.88,337.63,352.35,1.0,39924,0,0
+benchmark_small,project_comments,All comments for every topic in a project (1+N in REST),rest,12207.15,12100.5,12310.98,26.0,39604,0,0
+benchmark_small,topic_full,Per topic: comments + files + viewpoints → IFC selection (1+3N+N×V in REST),graphql,341.31,337.01,368.34,1.0,31133,0,0
+benchmark_small,topic_full,Per topic: comments + files + viewpoints → IFC selection (1+3N+N×V in REST),rest,47223.13,47085.03,47564.3,101.0,56925,0,0
+benchmark_small,overfetch_partial,2-field query (GraphQL) vs full topic payload (REST) — over-fetching cost,graphql,320.55,318.44,325.33,1.0,1389,0,0
+benchmark_small,overfetch_partial,2-field query (GraphQL) vs full topic payload (REST) — over-fetching cost,rest,466.94,465.04,468.82,1.0,17085,0,0
+benchmark_medium,topics_flat,"All topics, identical field set to REST (apples-to-apples)",graphql,405.96,395.18,487.9,1.0,68348,0,0
+benchmark_medium,topics_flat,"All topics, identical field set to REST (apples-to-apples)",rest,487.92,485.73,490.89,1.0,68328,0,0
+benchmark_medium,topics_nested,Topics → viewpoints → components → IFC GUIDs (N+1 in REST),graphql,353.61,350.05,371.05,1.0,47510,0,0
+benchmark_medium,topics_nested,Topics → viewpoints → components → IFC GUIDs (N+1 in REST),rest,94310.74,93924.28,94405.57,201.0,114233,0,6
+benchmark_medium,topic_events,BCF 3.0 spec topic audit log (Section 3.9),graphql,15347.71,15347.714500006987,15347.714500006987,1,78865,0,9
+benchmark_medium,topic_events,BCF 3.0 spec topic audit log (Section 3.9),rest,736.35,694.87,935.85,1.0,78840,0,0
+benchmark_medium,comment_events,BCF 3.0 spec comment audit log (Section 3.10),graphql,925.08,837.23,1091.19,1.0,115336,0,0
+benchmark_medium,comment_events,BCF 3.0 spec comment audit log (Section 3.10),rest,1075.17,926.26,1126.73,1.0,115309,0,0
+benchmark_medium,project_comments,All comments for every topic in a project (1+N in REST),graphql,823.93,715.93,1018.09,1.0,218955,0,0
+benchmark_medium,project_comments,All comments for every topic in a project (1+N in REST),rest,53094.05,52940.56,53760.84,101.0,217735,0,0
+benchmark_medium,topic_full,Per topic: comments + files + viewpoints → IFC selection (1+3N+N×V in REST),graphql,717.57,716.73,807.3,1.0,164334,0,0
+benchmark_medium,topic_full,Per topic: comments + files + viewpoints → IFC selection (1+3N+N×V in REST),rest,210690.01,209920.13,211456.42,401.0,285285,0,0
+benchmark_medium,overfetch_partial,2-field query (GraphQL) vs full topic payload (REST) — over-fetching cost,graphql,409.58,408.74,461.24,1.0,5496,0,0
+benchmark_medium,overfetch_partial,2-field query (GraphQL) vs full topic payload (REST) — over-fetching cost,rest,561.87,520.71,604.71,1.0,68328,0,0

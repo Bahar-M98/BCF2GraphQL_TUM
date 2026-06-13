@@ -1,0 +1,43 @@
+[project]
+name = "bcf2graphql"
+version = "0.1.0"
+description = "GraphQL and BCF REST API for BIM data — benchmarks GraphQL vs buildingSMART BCF REST 3.0"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ariadne>=0.29.0",
+    "bcf-client>=0.8.4",
+    "fastapi>=0.135.3",
+    "ifcdiff>=0.8.5",
+    "ifcopenshell>=0.8.4.post1",
+    "motor>=3.7.1",
+    "python-dotenv>=1.2.2",
+    "matplotlib>=3.9.0",
+    "reportlab>=4.4.10",
+    "uvicorn>=0.41.0",
+    "streamlit>=1.57.0",
+    "plotly>=6.7.0",
+    "httpx>=0.28.1",
+    "pygltflib>=1.16.0",
+    "numpy>=1.24.0",
+    "scipy>=1.14.0",
+    "locust>=2.32.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]

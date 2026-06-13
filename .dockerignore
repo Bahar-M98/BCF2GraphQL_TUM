@@ -1,0 +1,21 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.venv
+venv
+*.egg-info
+.env
+.env.*
+
+# Benchmark outputs and local viewers (not needed on Render)
+benchmark_results*.csv
+*.html
+
+# IFC sample files — mount at runtime or seed via import_bcf.py
+ifcs/
+uploads/
+exports/

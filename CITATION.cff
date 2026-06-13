@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: "BCF2GraphQL: A GraphQL and BCF REST API for benchmarking BIM data access"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Moradi
+    given-names: Bahar
+    email: bahar.moradi@tum.de
+    affiliation: "Technical University of Munich (TUM)"
+abstract: >-
+  A research server that exposes BIM (Building Information Modelling) data
+  through a GraphQL API and a buildingSMART BCF REST API 3.0 side by side in
+  one process, built to empirically benchmark the two approaches for querying
+  linked BCF/IFC data. Developed for a Master's thesis at TU Munich.
+keywords:
+  - GraphQL
+  - BCF
+  - IFC
+  - BIM
+  - buildingSMART
+  - REST
+  - benchmarking
+license: MIT
+repository-code: "https://github.com/Bahar-M98/BCF2GraphQL"

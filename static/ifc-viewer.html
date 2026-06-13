@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IFC Viewer — BCF Topics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/ifc-viewer.css" />
+</head>
+<body>
+
+<div id="viewport">
+  <div id="loader-overlay">
+    <div class="spinner"></div>
+    <span id="loader-text">Loading…</span>
+  </div>
+</div>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo-row">
+      <div class="sidebar-logo">IFC</div>
+      <div>
+        <div class="sidebar-title">IFC Viewer</div>
+        <div class="sidebar-subtitle">Click an element → BCF topics</div>
+      </div>
+    </div>
+    <label class="file-btn" for="file-input">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Open IFC File
+    </label>
+    <input type="file" id="file-input" accept=".ifc" />
+  </div>
+
+  <div id="status-bar">Ready — open an IFC file.</div>
+
+  <div id="element-strip">
+    <div class="element-strip-label">Selected Element</div>
+    <div class="element-guid" id="element-guid-display"></div>
+  </div>
+
+  <div id="topic-section">
+    <div class="empty-state">
+      <div class="icon">🏗</div>
+      Open an IFC file, then click<br>an element to see linked<br>BCF topics.
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/static/ifc-viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BCF Element Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/viewer.css" />
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">B</div>
+    <div>
+      <div class="sidebar-title">BCF Viewer</div>
+      <div class="sidebar-subtitle">Element &amp; Version Explorer</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="section-label">Connection</div>
+    <div class="field">
+      <label>GraphQL endpoint</label>
+      <input type="text" id="endpoint" value="http://localhost:8000" />
+    </div>
+    <div class="field">
+      <label>Topic GUID</label>
+      <input type="text" id="topic-guid" placeholder="Paste BCF topic GUID…" />
+    </div>
+    <button id="load-btn" class="btn btn-full" style="margin-top:4px;">Load topic</button>
+    <div id="status" style="margin-top:8px;">Enter a topic GUID and click Load.</div>
+  </div>
+
+  <!-- Version navigator (hidden until a topic is loaded) -->
+  <div id="version-box" class="sidebar-section" style="display:none;">
+    <div class="section-label">IFC Model Version</div>
+    <div id="version-nav">
+      <button id="prev-btn" class="btn btn-sm btn-nav" title="Previous version">&#9664; Prev</button>
+      <div id="version-label">
+        <div class="vnum">—</div>
+        <div class="vfile">—</div>
+        <div class="vguid">—</div>
+        <div class="vdate">—</div>
+      </div>
+      <button id="next-btn" class="btn btn-sm btn-nav" title="Next version">Next &#9654;</button>
+    </div>
+    <div id="version-missing">⚠ Element not present in this version</div>
+    <div id="match-info" style="display:none;"></div>
+  </div>
+
+  <!-- Diff panel (shown when currentVersion > first version in same project) -->
+  <div id="diff-box" class="sidebar-section" style="display:none;">
+    <div class="section-label">Version Diff</div>
+    <div id="diff-comparing"></div>
+    <div id="diff-content"></div>
+  </div>
+  <hr class="divider" id="diff-divider" style="display:none;" />
+
+  <div class="sidebar-section">
+    <div class="section-label">Elements in viewpoint</div>
+    <div id="element-list"></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="section-label">Color legend</div>
+    <div id="legend"></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="section-label">BCF Timeline</div>
+    <div id="timeline-list"></div>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="c"></canvas>
+  <div id="cam-hint">Orbit: left-drag · Zoom: scroll · Pan: right-drag</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module" src="/static/viewer.js"></script>
+</body>
+</html>

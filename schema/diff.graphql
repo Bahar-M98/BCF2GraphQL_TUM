@@ -1,0 +1,95 @@
+# ─── IFC Diff Queries ────────────────────────────────────────────────────────
+# On-demand comparison between two IFC file versions. ifcNameA/ifcNameB default
+# to the oldest and newest registered versions when omitted.
+
+extend type Query {
+
+    # Compare all elements across two versions of an IFC file — returns which
+    # elements were added, deleted, or modified between the two exports.
+    ifcFileDiff(
+        ifcProjectGuid: ID!
+        ifcNameA: String
+        ifcNameB: String
+    ): IfcFileDiff
+
+    # Deep diff for a single element — attributes, properties, geometry,
+    # type, container, and aggregate/classification membership.
+    ifcElementDiff(
+        ifcProjectGuid: ID!
+        globalId:       ID!
+        ifcNameA:       String
+        ifcNameB:       String
+    ): IfcElementDiff
+
+}
+
+# Convenience field: call diff directly on a resolved IfcElement without
+# repeating ifcProjectGuid and globalId in a separate top-level query.
+extend type IfcElement {
+    diff(ifcNameA: String, ifcNameB: String): IfcElementDiff
+}
+
+# ─── Types ───────────────────────────────────────────────────────────────────
+
+# Lightweight element summary used in the added/deleted/modified lists of
+# IfcFileDiff — just enough to identify the element without full detail.
+type IfcDiffElement {
+    globalId: ID!
+    type:     String
+    name:     String
+}
+
+# Top-level result of ifcFileDiff: which versions were compared and three
+# buckets of elements that changed between them.
+type IfcFileDiff {
+    versionA: IfcVersion!
+    versionB: IfcVersion!
+    added:    [IfcDiffElement!]!
+    deleted:  [IfcDiffElement!]!
+    modified: [IfcDiffElement!]!
+}
+
+# A single IFC attribute change (e.g. Name, Description, ObjectType).
+type IfcAttributeChange {
+    attribute: String!
+    oldValue:  String
+    newValue:  String
+}
+
+# A single property set change — identifies the pset and property by name.
+type IfcPropertyChange {
+    pset:     String!
+    property: String!
+    oldValue: String
+    newValue: String
+}
+
+# Full diff result for one element across two IFC versions. Groups changes
+# into six categories: attributes, properties, geometry, type, container,
+# and aggregate/classification membership.
+# placementOld/New reuse Vector3D from bcfSchema — the struct is identical.
+type IfcElementDiff {
+    globalId:  ID!
+    versionA:  IfcVersion!
+    versionB:  IfcVersion!
+    status:    String!   # "added" | "deleted" | "modified" | "unchanged"
+    unchanged: Boolean!  # convenience alias for status == "unchanged"
+
+    attributeChanges:      [IfcAttributeChange!]!
+    propertyChanges:       [IfcPropertyChange!]!
+
+    geometryChanged:       Boolean!
+    placementOld:          Vector3D
+    placementNew:          Vector3D
+
+    typeChanged:           Boolean!
+    oldType:               String
+    newType:               String
+
+    containerChanged:      Boolean!
+    oldContainer:          String
+    newContainer:          String
+
+    aggregateChanged:      Boolean!
+    classificationChanged: Boolean!
+}
