@@ -154,7 +154,7 @@ query OpenIssues {
 
 #### Locally (adds IFC and diff)
 
-**BCF to IFC** — resolve a topic's components into real IFC elements (`ifcElement` is a custom resolver, not part of the BCF spec), then read each element's material and a full per-element diff across model versions in the same request:
+**BCF to IFC** - resolve a topic's components into real IFC elements (`ifcElement` is a custom resolver, not part of the BCF spec), then read each element's material and a full per-element diff across model versions in the same request:
 
 ```graphql
 query IssueElementDiff {
@@ -193,7 +193,7 @@ query IssueElementDiff {
 }
 ```
 
-**IFC to BCF (bidirectional)** — from an IFC element, find every BCF topic that references it:
+**IFC to BCF (bidirectional)** - from an IFC element, find every BCF topic that references it:
 
 ```graphql
 query ElementIssues {
@@ -205,7 +205,7 @@ query ElementIssues {
 }
 ```
 
-**Element history across model versions** — the same wall tracked through every IFC export:
+**Element history across model versions** - the same wall tracked through every IFC export:
 
 ```graphql
 query ElementHistory {
@@ -219,7 +219,7 @@ query ElementHistory {
 }
 ```
 
-**IFC diff between two model versions** — what was added, deleted, or modified:
+**IFC diff between two model versions** - what was added, deleted, or modified:
 
 ```graphql
 query FileDiff {
