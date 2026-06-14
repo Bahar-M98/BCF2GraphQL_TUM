@@ -66,7 +66,7 @@ This repo implements a GraphQL alternative that collapses those chains into a si
 > **Prerequisites:** [Python 3.12+](https://www.python.org/) and [uv](https://docs.astral.sh/uv/) for dependency management.
 
 ```bash
-git clone https://github.com/Bahar-M98/BCF2GraphQL.git
+git clone https://github.com/Bahar-M98/BCF2GraphQL_TUM.git
 cd BCF2GraphQL
 uv sync
 ```
