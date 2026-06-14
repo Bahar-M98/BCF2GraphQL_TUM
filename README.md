@@ -66,12 +66,18 @@ This repo implements a GraphQL alternative that collapses those chains into a si
 > **Prerequisites:** [Python 3.12+](https://www.python.org/) and [uv](https://docs.astral.sh/uv/) for dependency management.
 
 ```bash
-git clone https://github.com/Bahar-M98/BCF2GraphQL_TUM.git
+git clone https://github.com/Bahar-M98/BCF2GraphQL.git
 cd BCF2GraphQL
 uv sync
 ```
 
-This repo ships with a ready-to-use public demo database, so you can run the full stack with zero setup. Create a `.env` file in the project root:
+This repo ships with a ready-to-use public demo database, so you can run the full stack with zero setup. Copy the example env file, which already contains the demo `MONGO_URI`:
+
+```bash
+cp .env.example .env          # Windows PowerShell: copy .env.example .env
+```
+
+The `.env` then contains:
 
 ```bash
 MONGO_URI=mongodb+srv://Bahar:TUMCCBEProject@bcf2graphql.iudftom.mongodb.net/?appName=BCF2GraphQL
@@ -94,7 +100,7 @@ Open any of these:
 | http://localhost:8000/viewer | **BCF viewer**: browse issues with 3D snapshots (Three.js) |
 | http://localhost:8000/ifc-viewer | **IFC viewer**: load a model, click an element, see its issues (web-ifc) |
 
-<sub>Windows PowerShell: use `copy .env.example .env` and `$env:MONGO_URI="..."` if you prefer exporting in-shell.</sub>
+<sub>Prefer not to use a file? Set the variable in-shell instead: `export MONGO_URI="..."` (bash) or `$env:MONGO_URI="..."` (PowerShell), then run the server.</sub>
 
 ---
 
@@ -110,20 +116,55 @@ Schema-first with [Ariadne](https://ariadnegraphql.org/), split across three SDL
   <sub>The unified type graph. Explore it interactively in the <a href="https://bcf2graphql.onrender.com/graphql">live playground</a>.</sub>
 </p>
 
+> **Live demo vs local.** The hosted demo at [bcf2graphql.onrender.com](https://bcf2graphql.onrender.com/graphql) serves the **BCF dataset only** — the IFC model files are not deployed there, so IFC, cross-format, and diff fields come back `null` or empty. Run the server **locally** (with the files in `ifcs/`) to use the full schema: resolving components to IFC elements, IFC element and version queries, the bidirectional element-to-topics link, version history, and IFC diff.
+
+#### On the live demo (BCF only)
+
+Fetch a topic with its comments and the raw IFC references its viewpoint highlights:
+
 ```graphql
-# Every open issue with its comments and the IFC elements it points at,
-# in one request, exactly the fields you want.
+query TopicDetail {
+  topic(guid: "2405fa74-8c39-42d0-87a5-78cdcbf6c9be") {
+    title              # "Change the wall type"
+    topicStatus
+    priority
+    assignedTo
+    comments { author comment }
+    viewpoints {
+      components {
+        selection { ifcGuid }   # BCF stores only the GUID; resolve it to an element locally
+      }
+    }
+  }
+}
+```
+
+Or list every open issue:
+
+```graphql
 query OpenIssues {
   topics(topicStatus: "Open") {
     title
     priority
     assignedTo
     comments { author comment }
+  }
+}
+```
+
+#### Locally (adds IFC and diff)
+
+**BCF to IFC** — resolve a topic's components into real IFC elements (`ifcElement` is a custom resolver, not part of the BCF spec):
+
+```graphql
+query IssueElements {
+  topic(guid: "2405fa74-8c39-42d0-87a5-78cdcbf6c9be") {
+    title
     viewpoints {
       components {
         selection {
           ifcGuid
-          ifcElement { name type storey }   # resolved across IFC versions
+          ifcElement { name type storey { name } }
         }
       }
     }
@@ -131,13 +172,56 @@ query OpenIssues {
 }
 ```
 
+**IFC to BCF (bidirectional)** — from an IFC element, find every BCF topic that references it:
+
+```graphql
+query ElementIssues {
+  topicsForElement(globalId: "38NblWsDL1I8DljLvn67bV") {
+    guid
+    title
+    topicStatus
+  }
+}
+```
+
+**Element history across model versions** — the same wall tracked through every IFC export:
+
+```graphql
+query ElementHistory {
+  elementVersionHistory(
+    globalId: "38NblWsDL1I8DljLvn67bV"
+    ifcProjectGuid: "3ZGD7y6S5209$mGLi_sPlj"
+  ) {
+    version { fileName exportedAt }
+    element { name type }
+  }
+}
+```
+
+**IFC diff between two model versions** — what was added, deleted, or modified:
+
+```graphql
+query FileDiff {
+  ifcFileDiff(
+    ifcProjectGuid: "3ZGD7y6S5209$mGLi_sPlj"
+    ifcNameA: "BasicModelV1.ifc"
+    ifcNameB: "BasicModelV2.ifc"
+  ) {
+    added    { globalId type name }
+    deleted  { globalId type name }
+    modified { globalId type name }
+  }
+}
+```
+
 **Query fields at a glance:**
 
-| Domain | Fields |
-|---|---|
-| **BCF** | `project`, `topics(...)`, `topic(guid)`, `topicHistory(guid)`, `topicEvents(...)`, `commentEvents(...)` |
-| **IFC** | `ifcElement(...)`, `ifcElements(...)`, `ifcVersions(...)`, `ifcVersionForEvent(...)`, `elementVersionHistory(...)`, `topicsForElement(...)` |
-| **Cross-cutting** | `topicTimeline(topicGuid)`, `diff(ifcNameA, ifcNameB)` |
+| Domain | Fields | Available on |
+|---|---|---|
+| **BCF** | `project`, `topics(...)`, `topic(guid)`, `topicHistory(guid)`, `topicEvents(...)`, `commentEvents(...)` | Render + local |
+| **IFC** | `ifcElement(...)`, `ifcElements(...)`, `ifcVersions(...)`, `ifcVersionForEvent(...)`, `elementVersionHistory(...)`, `topicsForElement(...)` | local only |
+| **Diff** | `ifcFileDiff(...)`, `ifcElementDiff(...)` | local only |
+| **Cross-format** | `topicTimeline(topicGuid)` | Render + local (`ifcVersion` stamped locally) |
 
 #### The headline query: `topicTimeline`
 
@@ -145,7 +229,7 @@ This is the query that motivates the whole comparison. It returns a single, unif
 
 ```graphql
 query Timeline {
-  topicTimeline(topicGuid: "3a8b...") {
+  topicTimeline(topicGuid: "2405fa74-8c39-42d0-87a5-78cdcbf6c9be") {
     eventType        # CREATION | COMMENT | MODIFICATION | STATUS_CHANGE
     timestamp { ISO8601 }
     author
@@ -156,6 +240,8 @@ query Timeline {
 ```
 
 Reproducing this over the REST API takes `2 + N` requests (topic events, comment events, then one IFC-version lookup per event). GraphQL does it in one. That gap, measured across realistic data sizes, is the heart of the thesis.
+
+The BCF event stream returns on the live demo too; the `ifcVersion` stamp on each event is only populated when the IFC files are present, so run it locally to see the version linkage.
 
 <p align="center">
   <img src="assets/topic-timeline.png" alt="topicTimeline merges the BCF issue timeline and the IFC model timeline through the GraphQL resolver layer into one version-stamped event stream" width="860">
