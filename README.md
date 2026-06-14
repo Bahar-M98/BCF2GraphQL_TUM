@@ -154,17 +154,38 @@ query OpenIssues {
 
 #### Locally (adds IFC and diff)
 
-**BCF to IFC** — resolve a topic's components into real IFC elements (`ifcElement` is a custom resolver, not part of the BCF spec):
+**BCF to IFC** — resolve a topic's components into real IFC elements (`ifcElement` is a custom resolver, not part of the BCF spec), then read each element's material and a full per-element diff across model versions in the same request:
 
 ```graphql
-query IssueElements {
+query IssueElementDiff {
   topic(guid: "2405fa74-8c39-42d0-87a5-78cdcbf6c9be") {
-    title
     viewpoints {
       components {
         selection {
-          ifcGuid
-          ifcElement { name type storey { name } }
+          ifcElement {
+            material { name }
+            diff {
+              globalId
+              status
+              unchanged
+
+              versionA { fileName exportedAt }
+              versionB { fileName exportedAt }
+
+              attributeChanges { attribute oldValue newValue }
+              propertyChanges  { pset property oldValue newValue }
+
+              geometryChanged
+              placementOld { x y z }
+              placementNew { x y z }
+
+              typeChanged      oldType      newType
+              containerChanged oldContainer newContainer
+
+              aggregateChanged
+              classificationChanged
+            }
+          }
         }
       }
     }
