@@ -108,6 +108,8 @@ Open any of these:
 
 ### The GraphQL API
 
+> **Try it live:** [GraphQL playground on Render](https://bcf2graphql.onrender.com/graphql) (BCF data only).
+
 Schema-first with [Ariadne](https://ariadnegraphql.org/), split across three SDL files (`schema/bcf.graphql`, `ifc.graphql`, `diff.graphql`). Ask for exactly the fields you need:
 
 <p align="center">
@@ -116,7 +118,7 @@ Schema-first with [Ariadne](https://ariadnegraphql.org/), split across three SDL
   <sub>The unified type graph. Explore it interactively in the <a href="https://bcf2graphql.onrender.com/graphql">live playground</a>.</sub>
 </p>
 
-> **Live demo vs local.** The hosted demo at [bcf2graphql.onrender.com](https://bcf2graphql.onrender.com/graphql) serves the **BCF dataset only** — the IFC model files are not deployed there, so IFC, cross-format, and diff fields come back `null` or empty. Run the server **locally** (with the files in `ifcs/`) to use the full schema: resolving components to IFC elements, IFC element and version queries, the bidirectional element-to-topics link, version history, and IFC diff.
+> **Live demo vs local.** The hosted demo at [bcf2graphql.onrender.com](https://bcf2graphql.onrender.com/graphql) serves the **BCF dataset only**. The IFC model files are not deployed there, so IFC, cross-format, and diff fields come back `null` or empty. Run the server **locally** (with the files in `ifcs/`) to use the full schema: resolving components to IFC elements, IFC element and version queries, the bidirectional element-to-topics link, version history, and IFC diff.
 
 #### On the live demo (BCF only)
 
@@ -154,7 +156,7 @@ query OpenIssues {
 
 #### Locally (adds IFC and diff)
 
-**BCF to IFC** - resolve a topic's components into real IFC elements (`ifcElement` is a custom resolver, not part of the BCF spec), then read each element's material and a full per-element diff across model versions in the same request:
+**BCF to IFC:** resolve a topic's components into real IFC elements (`ifcElement` is a custom resolver, not part of the BCF spec), then read each element's material and a full per-element diff across model versions in the same request:
 
 ```graphql
 query IssueElementDiff {
@@ -193,7 +195,7 @@ query IssueElementDiff {
 }
 ```
 
-**IFC to BCF (bidirectional)** - from an IFC element, find every BCF topic that references it:
+**IFC to BCF (bidirectional):** from an IFC element, find every BCF topic that references it:
 
 ```graphql
 query ElementIssues {
@@ -205,7 +207,7 @@ query ElementIssues {
 }
 ```
 
-**Element history across model versions** - the same wall tracked through every IFC export:
+**Element history across model versions:** the same wall tracked through every IFC export:
 
 ```graphql
 query ElementHistory {
@@ -219,7 +221,7 @@ query ElementHistory {
 }
 ```
 
-**IFC diff between two model versions** - what was added, deleted, or modified:
+**IFC diff between two model versions:** what was added, deleted, or modified:
 
 ```graphql
 query FileDiff {
@@ -271,6 +273,8 @@ The BCF event stream returns on the live demo too; the `ifcVersion` stamp on eac
 </p>
 
 ### The BCF REST API
+
+> **Try it live:** [Swagger UI on Render](https://bcf2graphql.onrender.com/docs) · [REST base `/bcf/3.0/projects`](https://bcf2graphql.onrender.com/bcf/3.0/projects).
 
 A faithful implementation of the [buildingSMART BCF REST API 3.0](https://github.com/buildingSMART/BCF-API/tree/release_3_0) spec, mounted under `/bcf/3.0`, with full Swagger docs at `/docs` and OData `$filter` support on topic queries.
 
