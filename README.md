@@ -2,9 +2,9 @@
 
 # BCF2GraphQL
 
-### One BIM dataset. Two APIs. Side by side.
+### Is GraphQL a better fit than REST for connected BIM data?
 
-**A research server that serves the same Building Information Modelling data through a [GraphQL API](#the-graphql-api) and the official [buildingSMART BCF REST API 3.0](#the-bcf-rest-api), built to benchmark which one queries linked BCF/IFC data more efficiently.**
+**A research server that serves the same Building Information Modelling data through a [GraphQL API](#the-graphql-api) and the official [buildingSMART BCF REST API 3.0](#the-bcf-rest-api), built to test whether GraphQL is a more efficient and more expressive interface for linked BCF and IFC data.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
@@ -13,27 +13,51 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/atlas)
 [![BCF 3.0](https://img.shields.io/badge/buildingSMART-BCF%203.0-005A9C)](https://github.com/buildingSMART/BCF-API/tree/release_3_0)
 
-[**Live demo**](https://bcf2graphql.onrender.com/graphql) · [**Quick start**](#quick-start) · [**The two APIs**](#the-two-apis) · [**Benchmarks**](#benchmarks) · [**Architecture**](#architecture)
+[**Live demo**](https://bcf2graphql.onrender.com/graphql) · [**Quick start**](#quick-start) · [**What's inside**](#whats-inside) · [**The two APIs**](#the-two-apis) · [**Architecture**](#architecture)
 
 </div>
 
 ---
 
-## What is this?
+## What this is
 
-Construction projects track issues such as clashes, defects, and open questions in **BCF** (BIM Collaboration Format) files, while the building itself lives in **IFC** (Industry Foundation Classes) 3D models. The two are deeply linked: a BCF issue points at specific IFC elements, and as the model evolves through versions, those links have to be resolved against whichever version of the model existed when the issue was raised.
+BCF2GraphQL serves the same Building Information Modelling data through two APIs running side by side: a **GraphQL API** and a faithful implementation of the official **[buildingSMART BCF REST API 3.0](https://github.com/buildingSMART/BCF-API/tree/release_3_0)** spec. Around them it bundles the cross-format integration queries, two web viewers, sample data, and the benchmark suite used to compare the two interfaces.
 
-Answering a question like "show me the full timeline of this issue, with the model version active at each step" is awkward over a classic REST API, because it takes many round trips. BCF2GraphQL exposes the exact same data two ways so the cost of each can be measured empirically, which is the core contribution of the [Master's thesis](#citation) it was built for at the Technical University of Munich.
+It was built for a Master's thesis at the Technical University of Munich. The thesis covers the full method, design rationale, and results; this repository is the running system behind it.
 
-| | GraphQL API | BCF REST API 3.0 |
+## Why it exists
+
+BCF issue data is relational: a project contains topics, each topic has comments and viewpoints, each viewpoint references IFC components, and each component points to an element in an IFC model. BCF REST 3.0 models each level as its own endpoint, so three problems show up in practice:
+
+- A single "show me these topics with their elements" view becomes a long chain of sequential requests (the classic **N+1 problem**).
+- REST returns fixed representations with **no field selection**, so clients over-fetch.
+- The spec defines **no link** between a BCF issue and the IFC element it concerns, so clients have to reconstruct that relationship themselves.
+
+This repo implements a GraphQL alternative that collapses those chains into a single request, lets the client pick exactly the fields it needs, and unifies BCF and IFC into one queryable graph, then measures the difference against the REST baseline. Both APIs run in the same process over the same data, so the query interface is the only variable.
+
+<p align="center">
+  <img src="assets/architecture-overview.png" alt="How BCF and IFC link: a BCF Component's ifcGuid maps to an IfcElement globalId, with forward, reverse, and version links between the two formats" width="560">
+  <br>
+  <sub>BCF and IFC share a GlobalId, which lets the schema link issues to elements forward, in reverse, and across model versions.</sub>
+</p>
+
+> In the thesis benchmark, GraphQL ran relational queries roughly 20x to 130x faster locally and up to ~290x in the cloud, while REST kept a small edge only on flat queries. Full numbers, scenarios, and method are in the thesis.
+
+---
+
+## What's inside
+
+| Component | What it is | Why it's here |
 |---|---|---|
-| **Style** | Schema-first, client picks fields | Spec-compliant, fixed resources |
-| **Built with** | Ariadne + FastAPI | FastAPI |
-| **Linked BCF/IFC queries** | One request | `2 + N` requests |
-| **Endpoint** | `POST /graphql` | `GET /bcf/3.0/...` |
-| **Standard** | Custom (BCF-aligned) | [buildingSMART BCF 3.0](https://github.com/buildingSMART/BCF-API/tree/release_3_0) |
-
-Both run in the same process, on the same port, over the same MongoDB and IFC data, so any performance difference is the API model, not the storage.
+| **GraphQL API** (`schema/`, `resolvers/`) | Schema-first BCF + IFC + diff schema served with Ariadne | The main artefact under study |
+| **BCF REST 3.0 API** (`rest/`) | Faithful implementation of the spec's core read endpoints | The comparison baseline |
+| **Cross-format queries** | `topicTimeline`, `topicsForElement`, `elementVersionHistory` linking BCF and IFC | Capabilities no single REST request can provide |
+| **Late-binding IFC reader** (`ifc_reader.py`) | Reads `.ifc` files at query time via ifcopenshell, no import step | Drop a model in and it is queryable immediately |
+| **IFC diff** (`ifc_diff.py`) | Added, deleted, and modified elements between two model versions | Exposed as a GraphQL query |
+| **Web viewers** (`static/`) | A BCF topic viewer and an IFC model viewer (click an element to see its issues) | Show the integration working in a browser |
+| **Benchmark suite** (`benchmarks/`) | GraphQL-vs-REST scenarios plus Streamlit dashboards | Reproduce the thesis measurements |
+| **Sample data** (`exports/`, `ifcs/`) | Example `.bcf` files and `.ifc` models | Run against real data out of the box |
+| **Deployment** (`Dockerfile`, `render.yaml`) | Container image and a Render blueprint | Deploy the live demo |
 
 ---
 
@@ -79,6 +103,12 @@ Open any of these:
 ### The GraphQL API
 
 Schema-first with [Ariadne](https://ariadnegraphql.org/), split across three SDL files (`schema/bcf.graphql`, `ifc.graphql`, `diff.graphql`). Ask for exactly the fields you need:
+
+<p align="center">
+  <img src="assets/graphql-schema.png" alt="The GraphQL type graph: BCF, IFC, and diff types unified into one connected schema" width="720">
+  <br>
+  <sub>The unified type graph. Explore it interactively in the <a href="https://bcf2graphql.onrender.com/graphql">live playground</a>.</sub>
+</p>
 
 ```graphql
 # Every open issue with its comments and the IFC elements it points at,
@@ -127,6 +157,12 @@ query Timeline {
 
 Reproducing this over the REST API takes `2 + N` requests (topic events, comment events, then one IFC-version lookup per event). GraphQL does it in one. That gap, measured across realistic data sizes, is the heart of the thesis.
 
+<p align="center">
+  <img src="assets/topic-timeline.png" alt="topicTimeline merges the BCF issue timeline and the IFC model timeline through the GraphQL resolver layer into one version-stamped event stream" width="860">
+  <br>
+  <sub>The resolver layer merges the BCF issue timeline and the IFC model timeline into one version-stamped stream, resolved in a single request.</sub>
+</p>
+
 ### The BCF REST API
 
 A faithful implementation of the [buildingSMART BCF REST API 3.0](https://github.com/buildingSMART/BCF-API/tree/release_3_0) spec, mounted under `/bcf/3.0`, with full Swagger docs at `/docs` and OData `$filter` support on topic queries.
@@ -174,32 +210,20 @@ Two browser-based viewers ship with the server and consume the GraphQL API direc
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    subgraph Clients
-        PG[GraphQL Playground]
-        SW[Swagger UI]
-        V[Three.js / web-ifc viewers]
-    end
+<p align="center">
+  <img src="assets/BCF2Graphql.png" alt="System architecture: BCF and IFC inputs flow through the GraphQL API, IFC extension, and integration layer into the web application and benchmark suite" width="640">
+  <br>
+  <sub>System overview, from BCF/IFC inputs through the API layers to the web application and benchmark suite.</sub>
+</p>
 
-    subgraph "FastAPI app · main.py · one process, one port"
-        GQL["/graphql<br/>Ariadne schema-first"]
-        REST["/bcf/3.0/*<br/>buildingSMART BCF REST 3.0"]
-        STATIC["/viewer · /ifc-viewer"]
-    end
 
-    subgraph Data
-        MONGO[(MongoDB<br/>BCF topics, comments, events)]
-        IFC["ifcs/*.ifc<br/>read at query time<br/>via ifcopenshell"]
-    end
+Inside the GraphQL layer, each root field resolves through its own chain before Ariadne assembles the response:
 
-    PG --> GQL
-    V --> GQL
-    SW --> REST
-    GQL --> MONGO & IFC
-    REST --> MONGO
-    STATIC --> V
-```
+<p align="center">
+  <img src="assets/resolver-chain.png" alt="Flowchart of how each GraphQL root field is resolved before Ariadne assembles the response" width="760">
+  <br>
+  <sub>How a GraphQL query is resolved, by root field.</sub>
+</p>
 
 **Two design decisions worth knowing:**
 
@@ -297,17 +321,7 @@ docker run -p 8000:8000 -e MONGO_URI="<your-uri>" bcf2graphql
 
 ## Citation
 
-This software was built for a Master's thesis at the Technical University of Munich. If you use it in academic work, please cite it; see [`CITATION.cff`](CITATION.cff).
-
-```bibtex
-@software{moradi_bcf2graphql,
-  author  = {Moradi, Bahar},
-  title   = {BCF2GraphQL: A GraphQL and BCF REST API for benchmarking BIM data access},
-  year    = {2026},
-  url      = {https://github.com/Bahar-M98/BCF2GraphQL},
-  note    = {Master's thesis, Technical University of Munich}
-}
-```
+This software was built for a Master's thesis at the Technical University of Munich.
 
 ---
 
